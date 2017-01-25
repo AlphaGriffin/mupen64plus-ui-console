@@ -1,6 +1,7 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  *   Mupen64plus-ui-console - main.c                                       *
  *   Mupen64Plus homepage: http://code.google.com/p/mupen64plus/           *
+ *   Copyright (C) 2017 Alpha Griffin                                      *
  *   Copyright (C) 2007-2010 Richard42                                     *
  *   Copyright (C) 2008 Ebenblues Nmn Okaygo Tillin9                       *
  *   Copyright (C) 2002 Hacktarux                                          *
@@ -64,6 +65,8 @@ static const char *l_SaveStatePath = NULL;     // save state to load at startup
 
 static int  *l_TestShotList = NULL;      // list of screenshots to take for regression test support
 static int   l_TestShotIdx = 0;          // index of next screenshot frame in list
+static int   l_AutoShots = -1;           // number of frames to skip for auto-screenshots, <0 = disable
+static int   l_NextAutoShot = 0;        // index of next frame to capture for auto-screenshot
 static int   l_SaveOptions = 1;          // save command-line options in configuration file (enabled by default)
 static int   l_CoreCompareMode = 0;      // 0 = disable, 1 = send, 2 = receive
 
@@ -141,6 +144,15 @@ static void FrameCallback(unsigned int FrameIndex)
             (*CoreDoCommand)(M64CMD_STOP, 0, NULL);  /* tell the core to shut down ASAP */
             free(l_TestShotList);
             l_TestShotList = NULL;
+        }
+    }
+
+    if (l_AutoShots >= 0)
+    {
+        if (FrameIndex >= l_NextAutoShot)
+        {
+            l_NextAutoShot = FrameIndex + l_AutoShots;
+            (*CoreDoCommand)(M64CMD_TAKE_NEXT_SCREENSHOT, 0, NULL);
         }
     }
 }
@@ -263,6 +275,7 @@ static void printUsage(const char *progname)
            "    --emumode (mode)       : set emu mode to: 0=Pure Interpreter 1=Interpreter 2=DynaRec\n"
            "    --savestate (filepath) : savestate loaded at startup\n"
            "    --testshots (list)     : take screenshots at frames given in comma-separated (list), then quit\n"
+           "    --autoshots (count)    : take screenshots automatically, skipping every (count) frames\n"
            "    --set (param-spec)     : set a configuration variable, format: ParamSection[ParamName]=Value\n"
            "    --core-compare-send    : use the Core Comparison debugging feature, in data sending mode\n"
            "    --core-compare-recv    : use the Core Comparison debugging feature, in data receiving mode\n"
@@ -560,6 +573,11 @@ static m64p_error ParseCommandLineFinal(int argc, const char **argv)
             l_TestShotList = ParseNumberList(argv[i+1], NULL);
             i++;
         }
+        else if (strcmp(argv[i], "--autoshots") == 0 && ArgsLeft >= 1)
+        {
+            l_AutoShots = atoi(argv[i+1]);
+            i++;
+        }
         else if (strcmp(argv[i], "--set") == 0 && ArgsLeft >= 1)
         {
             if (SetConfigParameter(argv[i+1]) != 0)
@@ -760,12 +778,12 @@ int main(int argc, char *argv[])
         }
     }
 
-    /* set up Frame Callback if --testshots is enabled */
-    if (l_TestShotList != NULL)
+    /* set up Frame Callback if --testshots or --autoshots is enabled */
+    if (l_TestShotList != NULL || l_AutoShots >= 0)
     {
         if ((*CoreDoCommand)(M64CMD_SET_FRAME_CALLBACK, 0, FrameCallback) != M64ERR_SUCCESS)
         {
-            DebugMessage(M64MSG_WARNING, "couldn't set frame callback, --testshots will not work.");
+            DebugMessage(M64MSG_WARNING, "couldn't set frame callback, --testshots or --autoshots will not work.");
         }
     }
 

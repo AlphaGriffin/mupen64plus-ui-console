@@ -785,6 +785,11 @@ int main(int argc, char *argv[])
         {
             DebugMessage(M64MSG_WARNING, "couldn't set frame callback, --testshots or --autoshots will not work.");
         }
+
+        if ((*CoreDoCommand)(M64CMD_TOGGLE_AUTOSHOTS, 0, NULL) != M64ERR_SUCCESS)
+        {
+            DebugMessage(M64MSG_WARNING, "coultn't turn on autoshots mode.");
+        }
     }
 
     /* load savestate at startup */
